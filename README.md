@@ -10,6 +10,8 @@
 
 Spring AI 1.0.x 위에 공공서비스 LLM 연동에 필요한 횡단관심사 세 가지를 자동 배선합니다.
 
+**호환성**: eGovFrame 5.0 세대(Spring Boot 3.5.x · Spring Framework 6.2.x · Java 17 · Spring AI 1.0.x)를 기준으로 합니다. `org.egovframe.boot:egovframe-boot-starter-parent:5.0.0` 또는 `spring-boot-starter-parent:3.5.6` 기반 프로젝트에 적용할 수 있습니다.
+
 - **PII 마스킹**: 프롬프트 전송 전 개인정보(주민등록번호·여권번호·카드번호·휴대폰번호 등)를 정규식 기반으로 길이 보존 마스킹
 - **예외/폴백 표준화**: LLM 호출 실패를 `EgovLlmException`(TIMEOUT/RATE_LIMIT/SERVER/UNKNOWN)으로 분류하고, 설정에 따라 폴백 메시지 응답 또는 예외 재전파
 - **토큰 사용량 로깅**: 응답마다 `LLM token usage - prompt: N, completion: M, total: K` 형식으로 INFO 로깅
