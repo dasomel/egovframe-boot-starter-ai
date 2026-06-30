@@ -1,0 +1,19 @@
+spring:
+  main:
+    web-application-type: none   # CommandLineRunner 종료 후 JVM 즉시 종료
+
+egovframe:
+  ai:
+    pii-masking:
+      enabled: true
+    fallback:
+      enabled: true
+      return-fallback: true
+      fallback-message: "서비스 일시 중단 중입니다."
+    token-usage:
+      enabled: true
+    trace:
+      enabled: true
+      include-prompt: false
+    prompt-template:
+      enabled: true
