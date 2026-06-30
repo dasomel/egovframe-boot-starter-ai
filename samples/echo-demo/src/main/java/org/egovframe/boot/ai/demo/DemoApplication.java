@@ -35,7 +35,7 @@ public class DemoApplication {
             log.info("프롬프트에 주민번호·휴대폰 포함 → PII advisor가 마스킹 후 모델에 전달");
 
             String response = client.prompt()
-                    .user("제 주민번호는 900101-1234567이고 연락처는 010-9876-5432입니다. 회원가입을 도와주세요.")
+                    .user("제 주민번호는 900101-1234568이고 연락처는 010-9876-5432입니다. 회원가입을 도와주세요.")
                     .call()
                     .content();
 

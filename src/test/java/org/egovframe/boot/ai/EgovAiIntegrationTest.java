@@ -73,7 +73,7 @@ class EgovAiIntegrationTest {
 
         ChatClient client = buildChatClient(stubModel, List.of(piiAdvisor));
         client.prompt()
-              .user("주민번호 900101-1234567 전화 010-1234-5678")
+              .user("주민번호 900101-1234568 전화 010-1234-5678")
               .call()
               .content();
 
@@ -83,7 +83,7 @@ class EgovAiIntegrationTest {
 
         assertThat(sentText).contains("900101-1******");
         assertThat(sentText).contains("010-****-5678");
-        assertThat(sentText).doesNotContain("1234567");
+        assertThat(sentText).doesNotContain("1234568");
     }
 
     // -----------------------------------------------------------------------

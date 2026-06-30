@@ -57,7 +57,7 @@ public class EgovAiAutoConfiguration {
     @Bean
     @ConditionalOnProperty(name = "egovframe.ai.pii-masking.enabled", matchIfMissing = true)
     public EgovPiiMaskingAdvisor egovPiiMaskingAdvisor(EgovPiiMaskingProperties props) {
-        return new EgovPiiMaskingAdvisor(new EgovPiiMasker(props.resolveTypes()), ORDER_PII);
+        return new EgovPiiMaskingAdvisor(new EgovPiiMasker(props.resolveTypes(), props.isVerifyCheckdigit()), ORDER_PII);
     }
 
     @Bean

@@ -84,15 +84,23 @@ public class EgovAiTraceAdvisor implements CallAdvisor, StreamAdvisor {
     public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
         String traceId = generateTraceId();
         MDC.put(properties.getMdcKey(), traceId);
-        long start = System.nanoTime();
-        log.info(formatter.start(traceId, resolveModel(request), resolvePromptChars(request)));
-        return chain.nextStream(request)
-                .doFinally(signal -> {
-                    long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-                    boolean error = signal == reactor.core.publisher.SignalType.ON_ERROR;
-                    log.info(formatter.end(traceId, elapsedMs, error));
-                    MDC.remove(properties.getMdcKey());
-                });
+        try {
+            long start = System.nanoTime();
+            log.info(formatter.start(traceId, resolveModel(request), resolvePromptChars(request)));
+            return chain.nextStream(request)
+                    .doFinally(signal -> {
+                        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+                        boolean error = signal == reactor.core.publisher.SignalType.ON_ERROR;
+                        MDC.put(properties.getMdcKey(), traceId);
+                        try {
+                            log.info(formatter.end(traceId, elapsedMs, error));
+                        } finally {
+                            MDC.remove(properties.getMdcKey());
+                        }
+                    });
+        } finally {
+            MDC.remove(properties.getMdcKey());
+        }
     }
 
     @Override public String getName() { return "EgovAiTraceAdvisor"; }

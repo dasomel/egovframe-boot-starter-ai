@@ -6,9 +6,15 @@ import java.util.Set;
 public class EgovPiiMasker {
 
     private final Set<EgovPiiType> enabled;
+    private final boolean verifyCheckdigit;
 
     public EgovPiiMasker(Set<EgovPiiType> enabled) {
+        this(enabled, false);
+    }
+
+    public EgovPiiMasker(Set<EgovPiiType> enabled, boolean verifyCheckdigit) {
         this.enabled = enabled;
+        this.verifyCheckdigit = verifyCheckdigit;
     }
 
     public String mask(String text) {
@@ -18,7 +24,7 @@ public class EgovPiiMasker {
         String result = text;
         for (EgovPiiType type : EgovPiiType.values()) {  // 선언 순서 = 우선순위
             if (enabled.contains(type)) {
-                result = type.maskAll(result);
+                result = type.maskAll(result, verifyCheckdigit);
             }
         }
         return result;
