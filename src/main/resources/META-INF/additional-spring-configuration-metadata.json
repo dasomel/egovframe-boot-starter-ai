@@ -24,6 +24,16 @@
       "name": "egovframe.ai.trace",
       "type": "org.egovframe.boot.ai.trace.EgovAiTraceProperties",
       "description": "eGovFrame AI 호출 추적 로깅 설정"
+    },
+    {
+      "name": "egovframe.ai.safeguard",
+      "type": "org.egovframe.boot.ai.safeguard.EgovAiSafeGuardProperties",
+      "description": "eGovFrame AI 보안 가드레일(금칙어·프롬프트 인젝션 차단) 설정"
+    },
+    {
+      "name": "egovframe.ai.audit",
+      "type": "org.egovframe.boot.ai.audit.EgovAiAuditProperties",
+      "description": "eGovFrame AI 감사 로그 설정"
     }
   ],
   "properties": [
@@ -97,6 +107,41 @@
       "type": "java.lang.String",
       "description": "MDC(Mapped Diagnostic Context)에 추적 ID를 저장할 키 이름.",
       "defaultValue": "egovAiTraceId"
+    },
+    {
+      "name": "egovframe.ai.safeguard.enabled",
+      "type": "java.lang.Boolean",
+      "description": "보안 가드레일 advisor 활성화 여부.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.safeguard.blocked-words",
+      "type": "java.util.List<java.lang.String>",
+      "description": "차단할 금칙어 목록. 대소문자를 구분하지 않는다. 기본값은 빈 목록."
+    },
+    {
+      "name": "egovframe.ai.safeguard.detect-injection",
+      "type": "java.lang.Boolean",
+      "description": "프롬프트 인젝션 패턴 탐지 활성화 여부.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.safeguard.block-message",
+      "type": "java.lang.String",
+      "description": "차단 시 사용자에게 반환할 안내 메시지.",
+      "defaultValue": "요청에 허용되지 않는 내용이 포함되어 있어 처리할 수 없습니다."
+    },
+    {
+      "name": "egovframe.ai.audit.enabled",
+      "type": "java.lang.Boolean",
+      "description": "감사 로그 advisor 활성화 여부.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.audit.include-response",
+      "type": "java.lang.Boolean",
+      "description": "감사 이벤트에 응답 텍스트를 포함할지 여부. 스트리밍 모드에서는 항상 제외.",
+      "defaultValue": true
     }
   ],
   "hints": []

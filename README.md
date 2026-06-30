@@ -17,7 +17,7 @@
 
 ## 소개
 
-Spring AI 1.0.x 위에서 공공서비스 LLM 연동에 필요한 횡단관심사 5종을 자동 배선합니다. 소비자는 의존성 하나만 추가하면 별도 `@Bean` 선언 없이 모든 기능이 `ChatClient`에 적용됩니다.
+Spring AI 1.0.x 위에서 공공서비스 LLM 연동에 필요한 횡단관심사 7종을 자동 배선합니다. 소비자는 의존성 하나만 추가하면 별도 `@Bean` 선언 없이 모든 기능이 `ChatClient`에 적용됩니다.
 
 ---
 
@@ -33,6 +33,11 @@ ChatClient.call()
 │  EgovAiTraceAdvisor │  AI 호출 시작/종료 + MDC traceId 로깅 (가장 바깥)
 └──────────┬──────────┘
            │
+           ▼  order=75
+┌────────────────────────────┐
+│  EgovAiSafeGuardAdvisor    │  금칙어·인젝션 탐지 → 위반 시 즉시 차단(LLM 미호출)
+└──────────┬─────────────────┘
+           │
            ▼  order=100
 ┌──────────────────────────┐
 │  EgovPiiMaskingAdvisor   │  user 메시지 PII 마스킹 후 다음으로 전달
@@ -41,6 +46,11 @@ ChatClient.call()
            ▼  order=200
 ┌──────────────────────────┐
 │  EgovLlmFallbackAdvisor  │  예외 → EgovLlmException 분류 / 폴백 응답 반환
+└──────────┬───────────────┘
+           │
+           ▼  order=250
+┌──────────────────────────┐
+│  EgovAiAuditLogAdvisor   │  마스킹된 query·응답·소요시간 → 감사 이벤트 발행
 └──────────┬───────────────┘
            │
            ▼  order=300
@@ -97,6 +107,37 @@ ChatClient.call()
 
 **설정**(`egovframe.ai.prompt-template.*`): `enabled`, `location`, `suffix`
 
+### 보안 가드레일(SafeGuard)
+
+`EgovAiSafeGuardAdvisor`가 user 메시지를 사전 검사하여 위반이 감지되면 LLM을 호출하지 않고 즉시 차단 응답을 반환합니다.
+
+- **금칙어 차단**: 설정한 단어 목록에 해당하는 텍스트를 대소문자 구분 없이 차단합니다.
+- **프롬프트 인젝션 탐지**: `ignore previous instructions`, `system prompt`, `developer mode`, `역할을 무시`, `이전 지시를 무시`, `프롬프트를 출력` 등의 패턴을 탐지합니다.
+- PII 마스킹보다 앞(order=75)에서 동작하여 불필요한 마스킹 비용 없이 빠르게 차단합니다.
+
+**설정**(`egovframe.ai.safeguard.*`): `enabled`, `blocked-words`, `detect-injection`, `block-message`
+
+### 감사 로그(AuditLog)
+
+`EgovAiAuditLogAdvisor`가 AI 호출마다 `EgovAiAuditEvent`를 Spring 애플리케이션 이벤트로 발행합니다. 소비 측에서 `@EventListener`로 수신하여 기관 DB나 감사 시스템에 저장할 수 있습니다.
+
+- **개인정보 보호**: 이 advisor는 PII 마스킹 이후(order=250, inner)에 위치하므로 `query` 필드에는 이미 마스킹된 텍스트만 담깁니다. 원본 미마스킹 PII는 저장하지 않습니다.
+- `traceId`(MDC), `query`(마스킹된 입력), `response`(`includeResponse=false`이면 null), `model`, `elapsedMs`를 기록합니다.
+- 스트리밍 모드에서는 응답 청크 집계 복잡성으로 인해 응답 텍스트를 포함하지 않습니다(`response=null`).
+
+**설정**(`egovframe.ai.audit.*`): `enabled`, `include-response`
+
+```java
+// 감사 이벤트 소비 예시
+@Component
+public class AuditEventHandler {
+    @EventListener
+    public void onAuditEvent(EgovAiAuditEvent event) {
+        // 기관 감사 DB 저장 등 처리
+    }
+}
+```
+
 ---
 
 ## 설치
@@ -135,6 +176,12 @@ mvn install
 | `egovframe.ai.prompt-template.enabled` | `true` | 프롬프트 템플릿 매니저 활성화 |
 | `egovframe.ai.prompt-template.location` | `"classpath:/egovframe/ai/prompts/"` | 템플릿 파일 기본 경로 |
 | `egovframe.ai.prompt-template.suffix` | `".st"` | 템플릿 파일 확장자 |
+| `egovframe.ai.safeguard.enabled` | `true` | 보안 가드레일 활성화 |
+| `egovframe.ai.safeguard.blocked-words` | `[]` | 차단할 금칙어 목록 (대소문자 무시) |
+| `egovframe.ai.safeguard.detect-injection` | `true` | 프롬프트 인젝션 탐지 활성화 |
+| `egovframe.ai.safeguard.block-message` | `"요청에 허용되지 않는 내용이..."` | 차단 시 반환 메시지 |
+| `egovframe.ai.audit.enabled` | `true` | 감사 로그 활성화 |
+| `egovframe.ai.audit.include-response` | `true` | 감사 이벤트에 응답 텍스트 포함 여부 |
 
 ---
 

@@ -1,5 +1,7 @@
 package org.egovframe.boot.ai.autoconfigure;
 
+import org.egovframe.boot.ai.audit.EgovAiAuditLogAdvisor;
+import org.egovframe.boot.ai.audit.EgovAiAuditProperties;
 import org.egovframe.boot.ai.fallback.EgovLlmExceptionMapper;
 import org.egovframe.boot.ai.fallback.EgovLlmFallbackAdvisor;
 import org.egovframe.boot.ai.fallback.EgovLlmFallbackProperties;
@@ -8,6 +10,9 @@ import org.egovframe.boot.ai.pii.EgovPiiMaskingAdvisor;
 import org.egovframe.boot.ai.pii.EgovPiiMaskingProperties;
 import org.egovframe.boot.ai.prompt.EgovPromptTemplateManager;
 import org.egovframe.boot.ai.prompt.EgovPromptTemplateProperties;
+import org.egovframe.boot.ai.safeguard.EgovAiSafeGuardAdvisor;
+import org.egovframe.boot.ai.safeguard.EgovAiSafeGuardChecker;
+import org.egovframe.boot.ai.safeguard.EgovAiSafeGuardProperties;
 import org.egovframe.boot.ai.trace.EgovAiTraceAdvisor;
 import org.egovframe.boot.ai.trace.EgovAiTraceLogFormatter;
 import org.egovframe.boot.ai.trace.EgovAiTraceProperties;
@@ -20,6 +25,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.ResourceLoader;
 
@@ -32,14 +38,18 @@ import java.util.List;
         EgovLlmFallbackProperties.class,
         EgovTokenUsageProperties.class,
         EgovPromptTemplateProperties.class,
-        EgovAiTraceProperties.class })
+        EgovAiTraceProperties.class,
+        EgovAiSafeGuardProperties.class,
+        EgovAiAuditProperties.class })
 public class EgovAiAutoConfiguration {
 
-    // advisor 순서: TRACE(최외곽) < PII < FALLBACK < USAGE(최내곽)
-    static final int ORDER_TRACE    = 50;
-    static final int ORDER_PII      = 100;
-    static final int ORDER_FALLBACK = 200;
-    static final int ORDER_USAGE    = 300;
+    // advisor 순서: TRACE(최외곽) < SAFEGUARD < PII < FALLBACK < AUDIT < USAGE(최내곽)
+    static final int ORDER_TRACE     = 50;
+    static final int ORDER_SAFEGUARD = 75;
+    static final int ORDER_PII       = 100;
+    static final int ORDER_FALLBACK  = 200;
+    static final int ORDER_AUDIT     = 250;
+    static final int ORDER_USAGE     = 300;
 
     @Bean
     @ConditionalOnProperty(name = "egovframe.ai.trace.enabled", matchIfMissing = true)
@@ -78,6 +88,21 @@ public class EgovAiAutoConfiguration {
     public EgovPromptTemplateManager egovPromptTemplateManager(ResourceLoader resourceLoader,
                                                                EgovPromptTemplateProperties props) {
         return new EgovPromptTemplateManager(resourceLoader, props);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "egovframe.ai.safeguard.enabled", matchIfMissing = true)
+    public EgovAiSafeGuardAdvisor egovAiSafeGuardAdvisor(EgovAiSafeGuardProperties props) {
+        EgovAiSafeGuardChecker checker =
+            new EgovAiSafeGuardChecker(props.getBlockedWords(), props.isDetectInjection());
+        return new EgovAiSafeGuardAdvisor(checker, props.getBlockMessage(), ORDER_SAFEGUARD);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "egovframe.ai.audit.enabled", matchIfMissing = true)
+    public EgovAiAuditLogAdvisor egovAiAuditLogAdvisor(ApplicationEventPublisher publisher,
+                                                        EgovAiAuditProperties props) {
+        return new EgovAiAuditLogAdvisor(publisher, props, ORDER_AUDIT);
     }
 
     @Bean
