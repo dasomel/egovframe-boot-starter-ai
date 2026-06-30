@@ -1,22 +1,103 @@
 # egovframe-boot-starter-ai
 
+![CI](https://github.com/your-fork/egovframe-boot-starter-ai/actions/workflows/ci.yml/badge.svg)
+![Java 17](https://img.shields.io/badge/Java-17-blue)
+![Spring AI 1.0.x](https://img.shields.io/badge/Spring%20AI-1.0.x-green)
+![License](https://img.shields.io/badge/License-Apache%202.0-lightgrey)
+
 전자정부 표준프레임워크 기반 공공 서비스를 위한 Spring AI 횡단관심사 자동구성 스타터(커뮤니티 구현).
 
 > 본 저장소는 개인/커뮤니티 구현이며 표준프레임워크 센터의 공식 배포가 아닙니다.
 > groupId `org.egovframe.boot`는 센터 소유 네임스페이스로, 본 저장소는 소스 및 로컬(`mvn install`) 사용을 전제로 합니다.
 > Maven Central 배포 예정이 없으므로 의존성 추가 전 반드시 로컬 설치가 선행되어야 합니다.
 
+**호환성**: eGovFrame 5.0 세대(Spring Boot 3.5.x · Spring Framework 6.2.x · Java 17 · Spring AI 1.0.x).
+
+---
+
 ## 소개
 
-Spring AI 1.0.x 위에 공공서비스 LLM 연동에 필요한 횡단관심사 세 가지를 자동 배선합니다.
+Spring AI 1.0.x 위에서 공공서비스 LLM 연동에 필요한 횡단관심사 5종을 자동 배선합니다. 소비자는 의존성 하나만 추가하면 별도 `@Bean` 선언 없이 모든 기능이 `ChatClient`에 적용됩니다.
 
-**호환성**: eGovFrame 5.0 세대(Spring Boot 3.5.x · Spring Framework 6.2.x · Java 17 · Spring AI 1.0.x)를 기준으로 합니다. `org.egovframe.boot:egovframe-boot-starter-parent:5.0.0` 또는 `spring-boot-starter-parent:3.5.6` 기반 프로젝트에 적용할 수 있습니다.
+---
 
-- **PII 마스킹**: 프롬프트 전송 전 개인정보(주민등록번호·여권번호·카드번호·휴대폰번호 등)를 정규식 기반으로 길이 보존 마스킹
-- **예외/폴백 표준화**: LLM 호출 실패를 `EgovLlmException`(TIMEOUT/RATE_LIMIT/SERVER/UNKNOWN)으로 분류하고, 설정에 따라 폴백 메시지 응답 또는 예외 재전파
-- **토큰 사용량 로깅**: 응답마다 `LLM token usage - prompt: N, completion: M, total: K` 형식으로 INFO 로깅
+## 아키텍처
 
-소비자는 의존성만 추가하면 세 기능이 자동 적용됩니다. 별도 `@Bean` 선언 불필요.
+### advisor 체인 실행 순서
+
+```
+ChatClient.call()
+    │
+    ▼  order=50
+┌─────────────────────┐
+│  EgovAiTraceAdvisor │  AI 호출 시작/종료 + MDC traceId 로깅 (가장 바깥)
+└──────────┬──────────┘
+           │
+           ▼  order=100
+┌──────────────────────────┐
+│  EgovPiiMaskingAdvisor   │  user 메시지 PII 마스킹 후 다음으로 전달
+└──────────┬───────────────┘
+           │
+           ▼  order=200
+┌──────────────────────────┐
+│  EgovLlmFallbackAdvisor  │  예외 → EgovLlmException 분류 / 폴백 응답 반환
+└──────────┬───────────────┘
+           │
+           ▼  order=300
+┌──────────────────────────┐
+│  EgovTokenUsageAdvisor   │  응답 후 토큰 사용량 로깅 (가장 안쪽)
+└──────────┬───────────────┘
+           │
+           ▼
+       ChatModel
+```
+
+낮은 order 값이 먼저(바깥쪽) 실행됩니다.
+
+### 프롬프트 템플릿 매니저
+
+`EgovPromptTemplateManager`는 advisor 체인과 독립적으로 동작합니다. 클래스패스의 외부 `.st` 파일을 로드하여 변수 치환 후 문자열을 반환하고, 로드 결과를 메모리에 캐시합니다.
+
+---
+
+## 기능
+
+### PII 마스킹
+
+`EgovPiiMaskingAdvisor`가 user 메시지 전송 전 개인정보를 정규식 기반으로 마스킹합니다.
+
+- `900101-1234567` → `900101-1******`
+- `010-1234-5678` → `010-****-5678`
+- `1234-5678-9012-3456` → `1234-****-****-3456`
+- `M12345678` → `M123****`
+
+**설정**(`egovframe.ai.pii-masking.*`): `enabled`, `types`
+
+### 예외/폴백 표준화
+
+`EgovLlmFallbackAdvisor`가 LLM 호출 예외를 `EgovLlmException.Kind`(TIMEOUT / RATE_LIMIT / SERVER / UNKNOWN)로 분류합니다. `return-fallback=true`(기본)이면 폴백 메시지를 응답으로 반환하고, `false`이면 분류된 예외를 재전파합니다.
+
+**설정**(`egovframe.ai.fallback.*`): `enabled`, `return-fallback`, `fallback-message`
+
+### 토큰 사용량 로깅
+
+`EgovTokenUsageAdvisor`가 응답마다 `LLM token usage - prompt: N, completion: M, total: K` 형식으로 INFO 로깅합니다.
+
+**설정**(`egovframe.ai.token-usage.*`): `enabled`
+
+### AI 호출 추적 로깅
+
+`EgovAiTraceAdvisor`가 AI 호출의 시작/종료를 MDC 추적 ID와 함께 로깅합니다. 가장 바깥에서 감싸므로 전체 체인의 소요 시간을 측정합니다.
+
+**설정**(`egovframe.ai.trace.*`): `enabled`, `include-prompt`, `mdc-key`
+
+### 프롬프트 템플릿 외부화
+
+`EgovPromptTemplateManager`가 클래스패스의 `.st` 파일을 이름으로 로드하고 변수를 치환합니다.
+
+**설정**(`egovframe.ai.prompt-template.*`): `enabled`, `location`, `suffix`
+
+---
 
 ## 설치
 
@@ -36,38 +117,28 @@ mvn install
 </dependency>
 ```
 
-## 기능
+---
 
-### PII 마스킹
-
-`EgovPiiMaskingAdvisor`가 `CallAdvisor`/`StreamAdvisor`로 동작하여 user 메시지 전송 전에 개인정보를 마스킹합니다.
-
-마스킹 결과 예시:
-- `900101-1234567` → `900101-1******`
-- `010-1234-5678` → `010-****-5678`
-- `1234-5678-9012-3456` → `1234-****-****-3456`
-- `M12345678` → `M123****`
-
-### 예외/폴백 표준화
-
-`EgovLlmFallbackAdvisor`가 LLM 호출 예외를 잡아 `EgovLlmException.Kind`로 분류합니다. `returnFallback=true`(기본값)이면 `fallbackMessage`를 응답으로 반환하고, `false`이면 분류된 예외를 재전파합니다.
-
-### 토큰 사용량 로깅
-
-`EgovTokenUsageAdvisor`가 응답 후 `org.slf4j.Logger`로 토큰 사용량을 기록합니다.
-
-## 설정 키
+## 설정 키 전체 표
 
 | 키 | 기본값 | 설명 |
 |----|--------|------|
 | `egovframe.ai.pii-masking.enabled` | `true` | PII 마스킹 활성화 |
-| `egovframe.ai.pii-masking.types` | (기본 유형) | 활성화할 PII 유형 목록 |
+| `egovframe.ai.pii-masking.types` | (기본 유형 7종) | 활성화할 PII 유형 목록 |
 | `egovframe.ai.fallback.enabled` | `true` | 폴백 어드바이저 활성화 |
 | `egovframe.ai.fallback.return-fallback` | `true` | true면 폴백 메시지 반환, false면 예외 재전파 |
-| `egovframe.ai.fallback.fallback-message` | (한국어 안내 문구) | 폴백 응답 메시지 |
+| `egovframe.ai.fallback.fallback-message` | `"일시적으로 요청을 처리할 수 없습니다..."` | 폴백 응답 메시지 |
 | `egovframe.ai.token-usage.enabled` | `true` | 토큰 사용량 로깅 활성화 |
+| `egovframe.ai.trace.enabled` | `true` | 추적 로깅 활성화 |
+| `egovframe.ai.trace.include-prompt` | `false` | true면 프롬프트 문자 수를 로그에 포함 |
+| `egovframe.ai.trace.mdc-key` | `"egovAiTraceId"` | MDC에 등록할 추적 ID 키 이름 |
+| `egovframe.ai.prompt-template.enabled` | `true` | 프롬프트 템플릿 매니저 활성화 |
+| `egovframe.ai.prompt-template.location` | `"classpath:/egovframe/ai/prompts/"` | 템플릿 파일 기본 경로 |
+| `egovframe.ai.prompt-template.suffix` | `".st"` | 템플릿 파일 확장자 |
 
-## PII 유형표
+---
+
+## PII 유형 표
 
 개인정보보호법 시행령 제19조(고유식별정보) 및 ISMS-P 3.2.3 기준.
 
@@ -85,10 +156,13 @@ mvn install
 | `BIRTHDATE` | 비활성 | 생년월일 (과탐 위험) |
 | `IP` | 비활성 | IP 주소 |
 
+---
+
 ## 사용 예시
 
+### 의존성 추가만으로 자동 적용
+
 ```java
-// 의존성만 추가하면 ChatClient에 자동 적용됩니다.
 @Autowired
 ChatClient.Builder builder;
 
@@ -97,29 +171,63 @@ String response = client.prompt()
     .user("제 주민번호는 900101-1234567입니다. 개인 맞춤 서비스를 신청합니다.")
     .call()
     .content();
-// → 프롬프트가 "제 주민번호는 900101-1****** 입니다. 개인 맞춤 서비스를 신청합니다."로 마스킹된 후 전송됩니다.
+// 프롬프트가 "제 주민번호는 900101-1****** 입니다..."로 마스킹된 후 전송됩니다.
 ```
 
-특정 기능만 비활성화하려면:
+### 일부 기능 비활성화
 
 ```yaml
 egovframe:
   ai:
     pii-masking:
-      enabled: false   # PII 마스킹 비활성화
+      enabled: false
     fallback:
-      return-fallback: false   # 폴백 대신 예외 재전파
+      return-fallback: false
       fallback-message: "서비스 일시 중단 중입니다."
     token-usage:
-      enabled: false   # 토큰 로깅 비활성화
+      enabled: false
+    trace:
+      include-prompt: true   # 프롬프트 문자 수를 로그에 포함
 ```
+
+### 프롬프트 템플릿 사용
+
+```
+# src/main/resources/egovframe/ai/prompts/greeting.st
+안녕하세요, {name}님. 오늘 {topic}에 대해 도움을 드리겠습니다.
+```
+
+```java
+@Autowired
+EgovPromptTemplateManager templateManager;
+
+String prompt = templateManager.render("greeting",
+    Map.of("name", "홍길동", "topic", "세금 신고"));
+```
+
+### 실행 가능한 데모 (samples/echo-demo)
+
+실 LLM 없이 advisor 체인 전체(PII 마스킹·trace·usage)를 로컬에서 확인할 수 있습니다.
+
+```bash
+# 루트에서 스타터 로컬 설치 후 데모 기동
+mvn -q -DskipTests install
+cd samples/echo-demo
+mvn spring-boot:run
+```
+
+자세한 실행 방법과 기대 출력은 [samples/echo-demo/README.md](samples/echo-demo/README.md)를 참고하세요.
+
+---
 
 ## 한계 및 미검증 항목
 
-- **실 LLM E2E 미검증**: 단위 테스트 및 ApplicationContextRunner 슬라이스 테스트만 수행. 실제 LLM 엔드포인트 연동은 검증되지 않았습니다.
-- **정규식 오탐 가능**: 숫자 패턴 기반 탐지이므로 유사한 형태의 일반 숫자 데이터가 마스킹될 수 있습니다. 체크디지트 검증 미포함.
+- **실 LLM E2E 미검증**: 단위 테스트 및 ApplicationContextRunner 슬라이스 테스트, 스텁 기반 통합 테스트만 수행. 실제 LLM 엔드포인트 연동은 검증되지 않았습니다.
+- **정규식 오탐 가능**: 숫자 패턴 기반 탐지이므로 유사 형태의 일반 숫자 데이터가 마스킹될 수 있습니다. 체크디지트 검증 미포함.
 - **ACCOUNT 유형 과탐**: 계좌번호 패턴이 느슨하여 일반 숫자 조합과 충돌할 수 있어 기본 활성이나 주의가 필요합니다.
 - **Spring AI 버전 고정**: `spring-ai-bom 1.0.1` 기준. 상위 버전은 별도 검증 필요.
+
+---
 
 ## 라이선스
 
