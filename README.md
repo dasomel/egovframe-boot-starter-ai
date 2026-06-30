@@ -1,6 +1,6 @@
 # egovframe-boot-starter-ai
 
-![CI](https://github.com/your-fork/egovframe-boot-starter-ai/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/dasomel/egovframe-boot-starter-ai/actions/workflows/ci.yml/badge.svg)
 ![Java 17](https://img.shields.io/badge/Java-17-blue)
 ![Spring AI 1.0.x](https://img.shields.io/badge/Spring%20AI-1.0.x-green)
 ![License](https://img.shields.io/badge/License-Apache%202.0-lightgrey)
@@ -103,7 +103,7 @@ ChatClient.call()
 
 ```bash
 # 1. 소스 클론 후 로컬 Maven 저장소에 설치
-git clone <this-repo>
+git clone https://github.com/dasomel/egovframe-boot-starter-ai.git
 cd egovframe-boot-starter-ai
 mvn install
 ```
