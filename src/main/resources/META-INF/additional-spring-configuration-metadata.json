@@ -1,0 +1,103 @@
+{
+  "groups": [
+    {
+      "name": "egovframe.ai.pii-masking",
+      "type": "org.egovframe.boot.ai.pii.EgovPiiMaskingProperties",
+      "description": "eGovFrame AI 개인정보 마스킹 설정"
+    },
+    {
+      "name": "egovframe.ai.fallback",
+      "type": "org.egovframe.boot.ai.fallback.EgovLlmFallbackProperties",
+      "description": "eGovFrame AI LLM 폴백(오류 복구) 설정"
+    },
+    {
+      "name": "egovframe.ai.token-usage",
+      "type": "org.egovframe.boot.ai.usage.EgovTokenUsageProperties",
+      "description": "eGovFrame AI 토큰 사용량 로깅 설정"
+    },
+    {
+      "name": "egovframe.ai.prompt-template",
+      "type": "org.egovframe.boot.ai.prompt.EgovPromptTemplateProperties",
+      "description": "eGovFrame AI 프롬프트 템플릿 외부화 설정"
+    },
+    {
+      "name": "egovframe.ai.trace",
+      "type": "org.egovframe.boot.ai.trace.EgovAiTraceProperties",
+      "description": "eGovFrame AI 호출 추적 로깅 설정"
+    }
+  ],
+  "properties": [
+    {
+      "name": "egovframe.ai.pii-masking.enabled",
+      "type": "java.lang.Boolean",
+      "description": "개인정보 마스킹 advisor 활성화 여부.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.pii-masking.types",
+      "type": "java.util.Set<org.egovframe.boot.ai.pii.EgovPiiType>",
+      "description": "마스킹할 개인정보 유형 목록. 미설정 시 기본값(PHONE, SSN 등) 적용."
+    },
+    {
+      "name": "egovframe.ai.fallback.enabled",
+      "type": "java.lang.Boolean",
+      "description": "LLM 폴백 advisor 활성화 여부.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.fallback.return-fallback",
+      "type": "java.lang.Boolean",
+      "description": "오류 발생 시 폴백 메시지를 응답으로 반환할지 여부. false이면 예외를 다시 던진다.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.fallback.fallback-message",
+      "type": "java.lang.String",
+      "description": "LLM 오류 시 사용자에게 반환할 폴백 안내 메시지.",
+      "defaultValue": "일시적으로 요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요."
+    },
+    {
+      "name": "egovframe.ai.token-usage.enabled",
+      "type": "java.lang.Boolean",
+      "description": "토큰 사용량 로깅 advisor 활성화 여부.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.prompt-template.enabled",
+      "type": "java.lang.Boolean",
+      "description": "프롬프트 템플릿 외부화 매니저 활성화 여부.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.prompt-template.location",
+      "type": "java.lang.String",
+      "description": "프롬프트 템플릿 파일이 위치하는 리소스 디렉토리 경로.",
+      "defaultValue": "classpath:/egovframe/ai/prompts/"
+    },
+    {
+      "name": "egovframe.ai.prompt-template.suffix",
+      "type": "java.lang.String",
+      "description": "프롬프트 템플릿 파일의 확장자.",
+      "defaultValue": ".st"
+    },
+    {
+      "name": "egovframe.ai.trace.enabled",
+      "type": "java.lang.Boolean",
+      "description": "AI 호출 추적 로깅 advisor 활성화 여부.",
+      "defaultValue": true
+    },
+    {
+      "name": "egovframe.ai.trace.include-prompt",
+      "type": "java.lang.Boolean",
+      "description": "추적 로그에 프롬프트 문자 수를 포함할지 여부. 개인정보 보호를 위해 기본값은 false.",
+      "defaultValue": false
+    },
+    {
+      "name": "egovframe.ai.trace.mdc-key",
+      "type": "java.lang.String",
+      "description": "MDC(Mapped Diagnostic Context)에 추적 ID를 저장할 키 이름.",
+      "defaultValue": "egovAiTraceId"
+    }
+  ],
+  "hints": []
+}
