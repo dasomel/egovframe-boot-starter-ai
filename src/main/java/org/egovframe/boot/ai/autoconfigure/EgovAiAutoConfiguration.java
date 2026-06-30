@@ -6,6 +6,11 @@ import org.egovframe.boot.ai.fallback.EgovLlmFallbackProperties;
 import org.egovframe.boot.ai.pii.EgovPiiMasker;
 import org.egovframe.boot.ai.pii.EgovPiiMaskingAdvisor;
 import org.egovframe.boot.ai.pii.EgovPiiMaskingProperties;
+import org.egovframe.boot.ai.prompt.EgovPromptTemplateManager;
+import org.egovframe.boot.ai.prompt.EgovPromptTemplateProperties;
+import org.egovframe.boot.ai.trace.EgovAiTraceAdvisor;
+import org.egovframe.boot.ai.trace.EgovAiTraceLogFormatter;
+import org.egovframe.boot.ai.trace.EgovAiTraceProperties;
 import org.egovframe.boot.ai.usage.EgovTokenUsageAdvisor;
 import org.egovframe.boot.ai.usage.EgovTokenUsageFormatter;
 import org.egovframe.boot.ai.usage.EgovTokenUsageProperties;
@@ -16,6 +21,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.ResourceLoader;
+
 import java.util.List;
 
 @AutoConfiguration
@@ -23,13 +30,29 @@ import java.util.List;
 @EnableConfigurationProperties({
         EgovPiiMaskingProperties.class,
         EgovLlmFallbackProperties.class,
-        EgovTokenUsageProperties.class })
+        EgovTokenUsageProperties.class,
+        EgovPromptTemplateProperties.class,
+        EgovAiTraceProperties.class })
 public class EgovAiAutoConfiguration {
 
-    // advisor 순서: PII(선실행) < fallback < usage(후실행)
-    static final int ORDER_PII = 100;
+    // advisor 순서: TRACE(최외곽) < PII < FALLBACK < USAGE(최내곽)
+    static final int ORDER_TRACE    = 50;
+    static final int ORDER_PII      = 100;
     static final int ORDER_FALLBACK = 200;
-    static final int ORDER_USAGE = 300;
+    static final int ORDER_USAGE    = 300;
+
+    @Bean
+    @ConditionalOnProperty(name = "egovframe.ai.trace.enabled", matchIfMissing = true)
+    public EgovAiTraceLogFormatter egovAiTraceLogFormatter() {
+        return new EgovAiTraceLogFormatter();
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "egovframe.ai.trace.enabled", matchIfMissing = true)
+    public EgovAiTraceAdvisor egovAiTraceAdvisor(EgovAiTraceLogFormatter formatter,
+                                                  EgovAiTraceProperties props) {
+        return new EgovAiTraceAdvisor(formatter, props, ORDER_TRACE);
+    }
 
     @Bean
     @ConditionalOnProperty(name = "egovframe.ai.pii-masking.enabled", matchIfMissing = true)
@@ -48,6 +71,13 @@ public class EgovAiAutoConfiguration {
     @ConditionalOnProperty(name = "egovframe.ai.token-usage.enabled", matchIfMissing = true)
     public EgovTokenUsageAdvisor egovTokenUsageAdvisor(EgovTokenUsageProperties props) {
         return new EgovTokenUsageAdvisor(new EgovTokenUsageFormatter(), ORDER_USAGE);
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "egovframe.ai.prompt-template.enabled", matchIfMissing = true)
+    public EgovPromptTemplateManager egovPromptTemplateManager(ResourceLoader resourceLoader,
+                                                               EgovPromptTemplateProperties props) {
+        return new EgovPromptTemplateManager(resourceLoader, props);
     }
 
     @Bean
