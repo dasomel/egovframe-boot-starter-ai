@@ -1,7 +1,9 @@
 package org.egovframe.boot.ai.audit;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.MDC;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
@@ -21,6 +23,12 @@ import static org.mockito.Mockito.*;
 
 class EgovAiAuditLogAdvisorTest {
 
+    private static final String DEFAULT_MDC_KEY = "egovAiTraceId";
+
+    @AfterEach void clearMdc() {
+        MDC.clear();
+    }
+
     private ChatClientRequest req(String text) {
         return ChatClientRequest.builder().prompt(new Prompt(text)).build();
     }
@@ -39,7 +47,7 @@ class EgovAiAuditLogAdvisorTest {
     @Test void publishesAuditEventAfterCall() {
         ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
         EgovAiAuditLogAdvisor advisor =
-            new EgovAiAuditLogAdvisor(publisher, propsWithResponse(true), 250);
+            new EgovAiAuditLogAdvisor(publisher, propsWithResponse(true), DEFAULT_MDC_KEY, 250);
 
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         when(chain.nextCall(any())).thenReturn(responseWith("응답 텍스트"));
@@ -57,7 +65,7 @@ class EgovAiAuditLogAdvisorTest {
     @Test void omitsResponseWhenIncludeResponseFalse() {
         ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
         EgovAiAuditLogAdvisor advisor =
-            new EgovAiAuditLogAdvisor(publisher, propsWithResponse(false), 250);
+            new EgovAiAuditLogAdvisor(publisher, propsWithResponse(false), DEFAULT_MDC_KEY, 250);
 
         CallAdvisorChain chain = mock(CallAdvisorChain.class);
         when(chain.nextCall(any())).thenReturn(responseWith("응답"));
@@ -72,7 +80,7 @@ class EgovAiAuditLogAdvisorTest {
     @Test void publishesAuditEventAfterStream() {
         ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
         EgovAiAuditLogAdvisor advisor =
-            new EgovAiAuditLogAdvisor(publisher, propsWithResponse(true), 250);
+            new EgovAiAuditLogAdvisor(publisher, propsWithResponse(true), DEFAULT_MDC_KEY, 250);
 
         StreamAdvisorChain chain = mock(StreamAdvisorChain.class);
         when(chain.nextStream(any())).thenReturn(Flux.just(responseWith("청크")));
@@ -89,7 +97,42 @@ class EgovAiAuditLogAdvisorTest {
 
     @Test void returnsCorrectOrder() {
         EgovAiAuditLogAdvisor advisor =
-            new EgovAiAuditLogAdvisor(mock(ApplicationEventPublisher.class), propsWithResponse(true), 250);
+            new EgovAiAuditLogAdvisor(mock(ApplicationEventPublisher.class), propsWithResponse(true), DEFAULT_MDC_KEY, 250);
         assertThat(advisor.getOrder()).isEqualTo(250);
+    }
+
+    @Test void resolvesTraceIdFromCustomMdcKey() {
+        ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
+        EgovAiAuditLogAdvisor advisor =
+            new EgovAiAuditLogAdvisor(publisher, propsWithResponse(true), "customTraceId", 250);
+
+        MDC.put("customTraceId", "abc123");
+
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+        when(chain.nextCall(any())).thenReturn(responseWith("응답"));
+
+        advisor.adviseCall(req("질의"), chain);
+
+        ArgumentCaptor<EgovAiAuditEvent> captor = ArgumentCaptor.forClass(EgovAiAuditEvent.class);
+        verify(publisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().getTraceId()).isEqualTo("abc123");
+    }
+
+    @Test void doesNotResolveTraceIdFromMismatchedMdcKey() {
+        ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
+        EgovAiAuditLogAdvisor advisor =
+            new EgovAiAuditLogAdvisor(publisher, propsWithResponse(true), "customTraceId", 250);
+
+        // trace advisor가 커스텀 키로 등록했지만, advisor가 잘못된(기본) 키를 바라보는 상황을 재현
+        MDC.put(DEFAULT_MDC_KEY, "shouldNotBeFound");
+
+        CallAdvisorChain chain = mock(CallAdvisorChain.class);
+        when(chain.nextCall(any())).thenReturn(responseWith("응답"));
+
+        advisor.adviseCall(req("질의"), chain);
+
+        ArgumentCaptor<EgovAiAuditEvent> captor = ArgumentCaptor.forClass(EgovAiAuditEvent.class);
+        verify(publisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().getTraceId()).isNull();
     }
 }

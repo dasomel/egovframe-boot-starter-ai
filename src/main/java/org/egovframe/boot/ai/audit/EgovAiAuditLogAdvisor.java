@@ -24,18 +24,22 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
 
     private final ApplicationEventPublisher publisher;
     private final EgovAiAuditProperties props;
+    private final String mdcKey;
     private final int order;
 
     /**
      * @param publisher 감사 이벤트를 발행할 Spring 이벤트 퍼블리셔
      * @param props     감사 로그 설정(활성화 여부, 응답 포함 여부)
+     * @param mdcKey    traceId를 조회할 MDC 키(trace advisor의 {@code egovframe.ai.trace.mdc-key}와 동일한 값이어야 한다)
      * @param order     advisor 체인 내 실행 순서(낮을수록 바깥쪽)
      */
     public EgovAiAuditLogAdvisor(ApplicationEventPublisher publisher,
                                   EgovAiAuditProperties props,
+                                  String mdcKey,
                                   int order) {
         this.publisher = publisher;
         this.props = props;
+        this.mdcKey = mdcKey;
         this.order = order;
     }
 
@@ -75,9 +79,10 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
      * 동기 호출 완료 후 감사 이벤트를 발행한다. 소요 시간은 하위 체인 호출 전체(이 advisor보다
      * 안쪽에 위치한 Usage advisor 포함)를 포괄해 측정한다.
      *
-     * <p>traceId는 MDC에서 고정 키 {@code "egovAiTraceId"}로 직접 조회한다. 이는
-     * {@link org.egovframe.boot.ai.trace.EgovAiTraceProperties}의 기본 MDC 키와 동일하며,
-     * trace advisor가 커스텀 {@code mdc-key}로 재설정된 환경에서는 traceId가 조회되지 않을 수 있다.</p>
+     * <p>traceId는 생성 시 주입된 {@code mdcKey}로 MDC에서 조회한다. 이 키는
+     * {@link org.egovframe.boot.ai.trace.EgovAiTraceProperties#getMdcKey()}에서 해석되므로,
+     * trace advisor가 커스텀 {@code egovframe.ai.trace.mdc-key}로 재설정된 환경에서도
+     * traceId가 정확히 조회된다.</p>
      *
      * @param request 원본 요청
      * @param chain   다음 advisor로 이어지는 호출 체인
@@ -87,7 +92,7 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
     public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
         String query = resolveUserText(request);
         String model = resolveModel(request);
-        String traceId = MDC.get("egovAiTraceId");
+        String traceId = MDC.get(mdcKey);
         long start = System.nanoTime();
 
         ChatClientResponse response = chain.nextCall(request);
@@ -111,7 +116,7 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
     public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
         String query = resolveUserText(request);
         String model = resolveModel(request);
-        String traceId = MDC.get("egovAiTraceId");
+        String traceId = MDC.get(mdcKey);
         long start = System.nanoTime();
 
         return chain.nextStream(request).doFinally(signal -> {

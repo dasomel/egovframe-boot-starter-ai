@@ -126,12 +126,18 @@ public class EgovAiAutoConfiguration {
         return new EgovAiSafeGuardAdvisor(checker, props.getBlockMessage(), ORDER_SAFEGUARD);
     }
 
-    /** order=250에 위치할 감사 로그 advisor를 등록한다. 이벤트 발행에 Spring의 기본 퍼블리셔를 사용한다. */
+    /**
+     * order=250에 위치할 감사 로그 advisor를 등록한다. 이벤트 발행에 Spring의 기본 퍼블리셔를 사용한다.
+     * traceId 조회용 MDC 키는 trace advisor 활성화 여부와 무관하게 항상 등록되는
+     * {@link EgovAiTraceProperties}에서 가져와, trace advisor가 비활성화되거나 커스텀
+     * {@code mdc-key}로 재설정된 환경에서도 두 advisor가 동일한 키를 바라보도록 한다.
+     */
     @Bean
     @ConditionalOnProperty(name = "egovframe.ai.audit.enabled", matchIfMissing = true)
     public EgovAiAuditLogAdvisor egovAiAuditLogAdvisor(ApplicationEventPublisher publisher,
-                                                        EgovAiAuditProperties props) {
-        return new EgovAiAuditLogAdvisor(publisher, props, ORDER_AUDIT);
+                                                        EgovAiAuditProperties props,
+                                                        EgovAiTraceProperties traceProps) {
+        return new EgovAiAuditLogAdvisor(publisher, props, traceProps.getMdcKey(), ORDER_AUDIT);
     }
 
     /**
