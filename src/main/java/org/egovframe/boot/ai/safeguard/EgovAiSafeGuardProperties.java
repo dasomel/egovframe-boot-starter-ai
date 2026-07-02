@@ -5,7 +5,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 보안 가드레일(SafeGuard) advisor 설정. */
+/**
+ * {@code egovframe.ai.safeguard.*} 설정 바인딩. {@link EgovAiSafeGuardAdvisor}와
+ * {@link EgovAiSafeGuardChecker}의 동작(활성화 여부, 금칙어 목록, 인젝션 탐지 여부,
+ * 차단 메시지)을 제어한다.
+ */
 @ConfigurationProperties("egovframe.ai.safeguard")
 public class EgovAiSafeGuardProperties {
 

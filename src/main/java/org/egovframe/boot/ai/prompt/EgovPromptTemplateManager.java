@@ -12,6 +12,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 외부 파일에서 프롬프트 템플릿을 로드하고 변수를 치환하여 문자열을 반환한다.
  * 로드된 템플릿은 ConcurrentHashMap에 캐시하여 재사용한다.
+ *
+ * <p>advisor 체인과는 독립적으로 동작하는 컴포넌트로, ChatClient 호출 흐름에 자동으로
+ * 끼어들지 않는다. 애플리케이션 코드가 이 클래스를 직접 주입받아 {@link #render}로 완성한
+ * 프롬프트 문자열을 {@code ChatClient.prompt().user(...)}에 전달하는 방식으로 사용한다.
+ * 템플릿 파일 위치·확장자는 {@link EgovPromptTemplateProperties}로 설정한다.</p>
  */
 public class EgovPromptTemplateManager {
 
@@ -39,7 +44,11 @@ public class EgovPromptTemplateManager {
     }
 
     /**
-     * 해당 이름의 템플릿이 존재하는지 확인한다.
+     * 해당 이름의 템플릿이 존재하는지 확인한다. 이미 캐시된 템플릿이면 리소스 조회 없이
+     * 즉시 true를 반환하고, 캐시에 없으면 리소스를 조회해 존재 여부만 확인한다(로드·캐시하지 않음).
+     *
+     * @param name 템플릿 이름(파일명에서 suffix 제외)
+     * @return 템플릿이 존재하면 true
      */
     public boolean contains(String name) {
         if (cache.containsKey(name)) {
@@ -50,6 +59,7 @@ public class EgovPromptTemplateManager {
         return resource.exists();
     }
 
+    /** 캐시 미스 시 리소스를 로드한다({@link #render}의 computeIfAbsent 콜백). */
     private String loadTemplate(String name) {
         String location = resolveLocation(name);
         Resource resource = resourceLoader.getResource(location);
@@ -65,6 +75,7 @@ public class EgovPromptTemplateManager {
         }
     }
 
+    /** 템플릿 이름을 {@code location + name + suffix} 형태의 리소스 경로로 조합한다. */
     private String resolveLocation(String name) {
         String base = properties.getLocation();
         if (!base.endsWith("/")) {

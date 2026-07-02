@@ -2,6 +2,8 @@ package org.egovframe.boot.ai.trace;
 
 /**
  * AI 호출 추적 로그 문자열을 생성하는 순수 로직.
+ * {@link EgovAiTraceAdvisor}(advisor 체인 최외곽, order=50)가 호출 시작/종료 시점에 이 클래스로
+ * 로그 문자열을 만들어 남긴다. 로깅 프레임워크나 advisor API에 의존하지 않으므로
  * 외부 의존성 없이 단독으로 단위 테스트 가능하다.
  */
 public class EgovAiTraceLogFormatter {

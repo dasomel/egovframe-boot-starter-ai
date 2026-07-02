@@ -26,6 +26,11 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
     private final EgovAiAuditProperties props;
     private final int order;
 
+    /**
+     * @param publisher 감사 이벤트를 발행할 Spring 이벤트 퍼블리셔
+     * @param props     감사 로그 설정(활성화 여부, 응답 포함 여부)
+     * @param order     advisor 체인 내 실행 순서(낮을수록 바깥쪽)
+     */
     public EgovAiAuditLogAdvisor(ApplicationEventPublisher publisher,
                                   EgovAiAuditProperties props,
                                   int order) {
@@ -34,6 +39,7 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
         this.order = order;
     }
 
+    /** 요청의 user 메시지 텍스트를 조회한다. 메시지가 없거나 조회 중 예외가 발생하면 null. */
     private String resolveUserText(ChatClientRequest request) {
         try {
             return request.prompt().getUserMessage().getText();
@@ -42,6 +48,7 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
         }
     }
 
+    /** 요청에 지정된 모델 이름을 조회한다. 옵션이 없거나 조회 중 예외가 발생하면 null. */
     private String resolveModel(ChatClientRequest request) {
         try {
             var options = request.prompt().getOptions();
@@ -51,6 +58,7 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
         }
     }
 
+    /** 응답의 어시스턴트 텍스트를 조회한다. 결과가 없거나 조회 중 예외가 발생하면 null. */
     private String resolveResponseText(ChatClientResponse response) {
         try {
             ChatResponse cr = response.chatResponse();
@@ -63,6 +71,18 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
         }
     }
 
+    /**
+     * 동기 호출 완료 후 감사 이벤트를 발행한다. 소요 시간은 하위 체인 호출 전체(이 advisor보다
+     * 안쪽에 위치한 Usage advisor 포함)를 포괄해 측정한다.
+     *
+     * <p>traceId는 MDC에서 고정 키 {@code "egovAiTraceId"}로 직접 조회한다. 이는
+     * {@link org.egovframe.boot.ai.trace.EgovAiTraceProperties}의 기본 MDC 키와 동일하며,
+     * trace advisor가 커스텀 {@code mdc-key}로 재설정된 환경에서는 traceId가 조회되지 않을 수 있다.</p>
+     *
+     * @param request 원본 요청
+     * @param chain   다음 advisor로 이어지는 호출 체인
+     * @return 다음 advisor 체인이 반환한 응답(변경 없이 그대로 반환)
+     */
     @Override
     public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
         String query = resolveUserText(request);
@@ -78,6 +98,15 @@ public class EgovAiAuditLogAdvisor implements CallAdvisor, StreamAdvisor {
         return response;
     }
 
+    /**
+     * 스트리밍 호출이 종료(정상/에러/취소)될 때 감사 이벤트를 발행한다. 청크 단위로 도착하는
+     * 응답 텍스트를 집계하는 복잡성을 피하기 위해 스트리밍 모드에서는 항상 {@code response=null}로
+     * 기록한다({@code include-response} 설정과 무관).
+     *
+     * @param request 원본 요청
+     * @param chain   다음 advisor로 이어지는 스트림 체인
+     * @return 다음 advisor 체인이 반환한 응답 스트림(변경 없이 그대로 반환)
+     */
     @Override
     public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
         String query = resolveUserText(request);
