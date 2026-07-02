@@ -3,28 +3,21 @@ package org.egovframe.boot.ai.audit;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * AI 감사 로그 및 이벤트 수집 설정 프로퍼티.
- * {@code egovframe.ai.audit} 프리픽스를 사용한다.
+ * {@code egovframe.ai.audit.*} 설정 바인딩. {@link EgovAiAuditLogAdvisor}의 활성화 여부와
+ * 감사 이벤트에 응답 텍스트를 포함할지를 제어한다.
  */
 @ConfigurationProperties("egovframe.ai.audit")
 public class EgovAiAuditProperties {
 
+    /** advisor 활성화 여부. */
     private boolean enabled = true;
-    private boolean logToConsole = true;
 
-    public boolean isEnabled() {
-        return enabled;
-    }
+    /** 감사 이벤트에 응답 텍스트를 포함할지 여부. */
+    private boolean includeResponse = true;
 
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
-    public boolean isLogToConsole() {
-        return logToConsole;
-    }
-
-    public void setLogToConsole(boolean logToConsole) {
-        this.logToConsole = logToConsole;
-    }
+    public boolean isIncludeResponse() { return includeResponse; }
+    public void setIncludeResponse(boolean includeResponse) { this.includeResponse = includeResponse; }
 }

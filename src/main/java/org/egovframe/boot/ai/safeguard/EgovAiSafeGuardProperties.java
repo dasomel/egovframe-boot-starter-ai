@@ -6,37 +6,34 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 내부 기밀/금칙어 사전 검사 가드레일 설정 프로퍼티.
- * {@code egovframe.ai.safeguard} 프리픽스를 사용한다.
+ * {@code egovframe.ai.safeguard.*} 설정 바인딩. {@link EgovAiSafeGuardAdvisor}와
+ * {@link EgovAiSafeGuardChecker}의 동작(활성화 여부, 금칙어 목록, 인젝션 탐지 여부,
+ * 차단 메시지)을 제어한다.
  */
 @ConfigurationProperties("egovframe.ai.safeguard")
 public class EgovAiSafeGuardProperties {
 
+    /** advisor 활성화 여부. */
     private boolean enabled = true;
-    private List<String> keywords = new ArrayList<>();
-    private String blockMessage = "입력하신 문장에 비공개 금칙어 또는 보안 부적절 단어가 포함되어 있어 처리할 수 없습니다.";
 
-    public boolean isEnabled() {
-        return enabled;
-    }
+    /** 차단할 금칙어 목록. 대소문자를 구분하지 않는다. */
+    private List<String> blockedWords = new ArrayList<>();
 
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
+    /** 프롬프트 인젝션 패턴 탐지 활성화 여부. */
+    private boolean detectInjection = true;
 
-    public List<String> getKeywords() {
-        return keywords;
-    }
+    /** 차단 시 반환할 안내 메시지. */
+    private String blockMessage = "요청에 허용되지 않는 내용이 포함되어 있어 처리할 수 없습니다.";
 
-    public void setKeywords(List<String> keywords) {
-        this.keywords = keywords;
-    }
+    public boolean isEnabled() { return enabled; }
+    public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
-    public String getBlockMessage() {
-        return blockMessage;
-    }
+    public List<String> getBlockedWords() { return blockedWords; }
+    public void setBlockedWords(List<String> blockedWords) { this.blockedWords = blockedWords; }
 
-    public void setBlockMessage(String blockMessage) {
-        this.blockMessage = blockMessage;
-    }
+    public boolean isDetectInjection() { return detectInjection; }
+    public void setDetectInjection(boolean detectInjection) { this.detectInjection = detectInjection; }
+
+    public String getBlockMessage() { return blockMessage; }
+    public void setBlockMessage(String blockMessage) { this.blockMessage = blockMessage; }
 }
